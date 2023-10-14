@@ -28,13 +28,24 @@ if (pygame.mixer.get_init() != True):
 # Group variable
 allChars = pygame.sprite.Group()
 
+# Char stats variable
+# ((8-25), (8-25), (5-20), 'AP/AD')
+mageStats = (9, 24, 6, 6, 'AP');
+knightStats = (25, 11, 15, 12, 'AD');
+monkStats = (19, 16, 9, 8, 'AD');
+rangerStats = (14, 13, 12, 8, 'AD');
+clericStats = (11, 9, 11, 13, 'AP');
+
 class char(pygame.sprite.Sprite):
-    def __init__(self, image, hp, atk, defP, speed, coords):
+    def __init__(self, image, (hp, atk, fdef, mdef, typeAtk), speed, coords, name):
         pygame.sprite.Sprite.__init__(self)
         self.hp = hp;
+        self.maxHp = hp;
         self.atk = atk;
-        self.defP = defP;
+        self.fisicalDef = fdef;
+        self.magicalDef = mdef;
         self.speed = speed;
+        self.type = typeAtk;
         self.image = image;
         self.image = pygame.transform.scale(self.image, (100, 100));
         self.rect = self.image.get_rect() ;
@@ -43,7 +54,7 @@ class char(pygame.sprite.Sprite):
         self.explain(image);
 
     def explain(self, image):
-        print(f'Nome: {image}, Speed: {self.speed}, HP: {self.hp}, def: {self.defP}, atk: {self.atk}')
+        print(f'Nome: {name}, Speed: {self.speed}, HP: {self.hp}, def: {self.defP}, atk: {self.atk}')
         
 
 
@@ -74,7 +85,6 @@ class pve():
 
     def updatePveMode(self, index):
         global screenType;
-
         screen.blit(self.bgimage, (0, 0));
         if (len(self.listHeroes) < 3):
             self.teamScreen(index);
@@ -83,7 +93,6 @@ class pve():
 
     def drawButtons(self, indexIdle):
         self.dictButtons = {};
-
         # Blit() menu buttons onto the screen and save them on a dictionary
         for i in range(len(self.listHeroesTypes)):
             key = self.listHeroesTypes[i] + '.png';
@@ -101,13 +110,23 @@ class pve():
         # self.skillBar();
 
     def createHeroes(self):
+        global knightStats ; global mageStats ; global rangerStats ; global monkStats ; global clericStats;
         coords = [(250, 220), (200, 420), (250, 620)];
         for i in range(len(self.listHeroes)):
             Image = pygame.image.load(f'Images\\Players\\{self.listHeroes[i]}\\{(self.listHeroes[i] + '.png')}').convert_alpha();
             Image = pygame.transform.scale(Image, (70, 70));
             imageRect = Image.get_rect();
             imageRect = imageRect.move(coords[i]);
-            allChars.add(char(Image, 50, 10, 5, (random.randrange(1, 10)), coords[i]));
+            if (self.listHeroes[i] == 'Paladin'):
+                allChars.add(char(Image, knightStats, (random.randrange(1, 20)), coords[i]), 'paladin');
+            elif (self.listHeroes[i] == 'Mage'):
+                allChars.add(char(Image, mageStats, (random.randrange(1, 20)), coords[i]), 'mage');
+            elif (self.listHeroes[i] == 'Cleric'):
+                allChars.add(char(Image, clericStats, (random.randrange(1, 20)), coords[i]), 'cleric');
+            elif (self.listHeroes[i] == 'Ranger'):
+                allChars.add(char(Image, rangerStats, (random.randrange(1, 20)), coords[i]), 'ranger');
+            elif (self.listHeroes[i] == 'Monk'):
+                allChars.add(char(Image, monkStats, (random.randrange(1, 20)), coords[i]), 'monk');
 
     def createEnemys(self):
         coords = [(724, 320), (724, 520)];
@@ -115,7 +134,7 @@ class pve():
             Image = pygame.image.load(f'Images\\Monsters\\Skull.png').convert_alpha();
             imageRect = Image.get_rect();
             imageRect = imageRect.move(coords[i]);
-            allChars.add(char(Image, 50, 10, 5, (random.randrange(1, 10)), coords[i]));
+            allChars.add(char(Image, 50, 10, 5, 'AD', (random.randrange(1, 10)), coords[i]));
 
     def skillBar():
         pass
