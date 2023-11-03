@@ -1,5 +1,5 @@
 # All the necessary library imports for the game
-import pygame ; import numpy as np ; import math ; import random
+import pygame ; import math ; import random ; import operator
 # All necessary .py archives
 import menus ;
 
@@ -23,20 +23,30 @@ selectSound = pygame.mixer.Sound('Sounds\\selectSound.mp3');
 if (pygame.mixer.get_init() != True):
     pygame.mixer.init();
 
+#Font variable
+font = pygame.font.Font('Fonts\\AGoblinAppears-o2aV.ttf', 18)
+
 # Group variable
 Heroes = pygame.sprite.Group();
 Enemys = pygame.sprite.Group();
-# Another variables
-dictButtons = {};
-turnDict = {};
 
 # Char stats variable
 # ((8-25), (8-25), (5-20), 'AP/AD')
 mageStats = (9, 24, 6, 6, 'AP');
-knightStats = (25, 11, 15, 12, 'AD');
+PaladinStats = (25, 11, 15, 12, 'AD');
 monkStats = (19, 16, 9, 8, 'AD');
 rangerStats = (14, 13, 12, 8, 'AD');
 clericStats = (11, 9, 11, 13, 'AP');
+skullStats = (40, 15, 10, 20, 'AD');
+
+# Variable list for speed (can't be repeated in d&d)
+allSpeed = []
+
+# Another variables
+dictButtons = {};
+turnDict = {};
+listTurn = [];
+
 
 class char(pygame.sprite.Sprite):
     def __init__(self, image, hp, atk, fdef, mdef, typeAtk, speed, coords, name):
@@ -50,18 +60,40 @@ class char(pygame.sprite.Sprite):
         self.speed = speed;
         self.type = typeAtk;
         self.image = image;
+        self.state = ''; #Idle, defense
         self.image = pygame.transform.scale(self.image, (70, 70));
         self.rect = self.image.get_rect() ;
         self.rect = self.rect.move(coords);
         screen.blit(self.image, coords);
-        self.explain(image);
+        self.explain();
 
     def explain(self):
-        print(f'Nome: {self.id}, Speed: {self.speed}, HP: {self.hp}, defT: {self.fisicalDef + self.magicalDef}, atk: {self.atk}')
+        print(f'Nome: {self.id}, Speed: {self.speed}, HP: {self.hp}, defT: {self.fisicalDef + self.magicalDef}, atk: {self.atk}');
 
     def getSpeed(self):
         return self.speed;
 
+    def getId(self):
+        return self.id;
+
+    def getHp(self):
+        return self.hp;
+
+    def getMaxHp(self):
+        return self.hp;
+
+    def attack(self, Char):
+        if Char.state == 'Defense':
+            if self.type == 'AD':
+                Char.hp = Char.hp - ((self.atk) * (50/(50 + (Char.fisicalDef*2))));
+            else:
+                Char.hp = Char.hp - ((self.atk) * (50/(50 + (Char.magicalDef*2))));
+        else:
+            if self.type == 'AD':
+                Char.hp = Char.hp - ((self.atk) * (50/(50 + Char.fisicalDef)));
+            else:
+                Char.hp = Char.hp - ((self.atk) * (50/(50 + Char.magicalDef)));
+            
 
 # Class for the PVE mode required on the PDF
 class pve():
@@ -96,13 +128,12 @@ class pve():
         else:
             screenType = 'Combat';
             
-    def drawButtons(self):
-        self.dictButtons = {};
 
+    def drawButtons(self):
         # Blit() menu buttons onto the screen and save them on a dictionary
         for i in range(len(self.listHeroesTypes)):
             key = self.listHeroesTypes[i] + '.png';
-            buttonImage = pygame.image.load(f'Images\\Players\\{self.listHeroesTypes[i]}\\{key}').convert_alpha();
+            buttonImage = pygame.image.load(f'Images\\Players\\{self.listHeroesTypes[i]}\\{(self.listHeroesTypes[i] + '.png')}').convert_alpha();
             buttonImage = pygame.transform.scale(buttonImage, (150, 150))
             imageRect = buttonImage.get_rect();
             imageRect = imageRect.move(self.listButtonsCords[i]);
@@ -113,39 +144,108 @@ class pve():
     def combatScreen(self):
         Heroes.update() ; Enemys.update();
         Heroes.draw(screen) ; Enemys.draw(screen);
-        # self.skillBar();
+        self.menuBar();
 
-    def createHeroes(self):
-        global knightStats ; global mageStats ; global rangerStats ; global monkStats ; global clericStats;
-        coords = [(250, 220), (200, 420), (250, 620)];
-        for i in range(len(self.listHeroes)):
-            Image = pygame.image.load(f'Images\\Players\\{self.listHeroes[i]}\\{self.listButtonsImages}').convert_alpha();
-            Image = pygame.transform.scale(Image, (70, 70));
-            imageRect = Image.get_rect();
-            imageRect = imageRect.move(coords[i]);
-            if (self.listHeroes[i] == 'Paladin'):
-                Heroes.add(char(Image, knightStats, (random.randrange(1, 20)), coords[i]), 'paladin');
-            elif (self.listHeroes[i] == 'Mage'):
-                Heroes.add(char(Image, mageStats, (random.randrange(1, 20)), coords[i]), 'mage');
-            elif (self.listHeroes[i] == 'Cleric'):
-                Heroes.add(char(Image, clericStats, (random.randrange(1, 20)), coords[i]), 'cleric');
-            elif (self.listHeroes[i] == 'Ranger'):
-                Heroes.add(char(Image, rangerStats, (random.randrange(1, 20)), coords[i]), 'ranger');
-            elif (self.listHeroes[i] == 'Monk'):
-                Heroes.add(char(Image, monkStats, (random.randrange(1, 20)), coords[i]), 'monk');
-
-
-
-    def createEnemys(self):
-        coords = [(724, 320), (724, 520)];
+    def menuBar(self):
+        coords = [(10, 508), (739, 508)];
+        bar = ['menuBar', 'infoBar']
         for i in range(2):
-            Image = pygame.image.load(f'Images\\Monsters\\Skull.png').convert_alpha();
-            imageRect = Image.get_rect();
-            imageRect = imageRect.move(coords[i]);
-            Enemys.add(char(Image, 50, 10, 5, 'AD', (random.randrange(1, 20)), coords[i]));
+            image = pygame.image.load(f'Images\\Assets\\{bar[i]}.png').convert_alpha();
+            screen.blit(image, coords[i]);
 
-    def skillBar():
-        pass
+class combat():
+    def combatScreen(self, indexTurn=4):
+        Heroes.update() ; Enemys.update();
+        Heroes.draw(screen) ; Enemys.draw(screen);
+        self.menuBar();
+        self.drawText(indexTurn);
+
+    def menuBar(self):
+        coords = [(10, 508), (739, 508)];
+        bar = ['menuBar', 'infoBar']
+        for i in range(2):
+            image = pygame.image.load(f'Images\\Assets\\{bar[i]}.png').convert_alpha();
+            screen.blit(image, coords[i]);
+
+    def drawText(self, index):
+        persona = listTurn[index];
+        # Coordinates for HP/MAXHP text
+        coords = [550, 625, 700]
+
+        attackText = font.render(f"Attack", True, (0, 0, 0));
+        attackRect = attackText.get_rect(); attackRect.move((445, 604))
+        skillText = font.render(f"Skill", True, (0, 0, 0));
+        skillRect = skillText.get_rect(); skillRect.move((445, 604))
+        defendText = font.render(f"Defend", True, (0, 0, 0));
+        defendRect = defendText.get_rect(); defendRect.move((445, 604));
+        if (persona.getId() == 'Skull0' or persona.getId() == 'Skull1'):
+            text = font.render(f"It's enemy's turn!", True, (0, 0, 0));
+        else:
+            text = font.render(f"It's {persona.getId()} turn!", True, (0, 0, 0)); 
+        # Codes for the menu bar text
+        screen.blit(text, (196, 528));
+        screen.blit(attackText, (108, 604));
+        screen.blit(defendText, (445, 604));
+        screen.blit(skillText, (136, 683));
+        # Codes for the stats bar text
+        for i in range(3):
+                textHp = font.render(f'{Heroes.sprites()[i].getId()}:  {Heroes.sprites()[i].getHp()}/{Heroes.sprites()[i].getMaxHp()}', True, (0, 0, 0));
+                screen.blit(textHp, (760, coords[i]));
+
+        
+
+def createHeroes():
+    coords = [(250, 220), (200, 320), (250, 420)];
+    for i in range(len(Pve.listHeroes)):
+        image = pygame.image.load(f'Images\\Players\\{Pve.listHeroes[i]}\\{(Pve.listHeroes[i] + '.png')}').convert_alpha();
+        image = pygame.transform.scale(image, (150, 150));
+        imageRect = image.get_rect();
+        imageRect = imageRect.move(coords[i]);
+        name = str(Pve.listHeroes[i])
+        speed = random.randrange(1, 20);
+        while speed in allSpeed:
+            speed = random.randrange(1, 20);
+        allSpeed.append(speed)
+        if (Pve.listHeroes[i] == 'Paladin'):
+            Paladin = char(image, *PaladinStats, speed, coords[i], name)
+            Heroes.add(Paladin); turnDict[Paladin] = Paladin.getSpeed();
+        elif (Pve.listHeroes[i] == 'Mage'):
+            Mage = char(image, *mageStats, speed, coords[i], name)
+            Heroes.add(Mage); turnDict[Mage] = Mage.getSpeed();
+        elif (Pve.listHeroes[i] == 'Cleric'):
+            Cleric = char(image, *clericStats, speed, coords[i], name)
+            Heroes.add(Cleric); turnDict[Cleric] = Cleric.getSpeed();
+        elif (Pve.listHeroes[i] == 'Ranger'):
+            Ranger = char(image, *rangerStats, speed, coords[i], name)
+            Heroes.add(Ranger); turnDict[Ranger] = Ranger.getSpeed();
+        elif (Pve.listHeroes[i] == 'Monk'):
+            Monk = char(image, *monkStats, speed, coords[i], name)
+            Heroes.add(Monk); turnDict[Monk] = Monk.getSpeed();
+
+def createEnemys():
+    coords = [(724, 220), (724, 420)];
+    for i in range(2):
+        image = pygame.image.load(f'Images\\Monsters\\Skull.png').convert_alpha();
+        image = pygame.transform.scale(image, (200, 200));
+        imageRect = image.get_rect();
+        imageRect = imageRect.move(coords[i]);
+        name = 'Skull' + str(i);
+        speed = random.randrange(1, 20); 
+        while speed in allSpeed:
+            speed = random.randrange(1, 20);
+        allSpeed.append(speed)
+        if (i == 0):
+            Skull1 = char(image, *skullStats, speed, coords[i], name)
+            Enemys.add(Skull1); turnDict[Skull1] = char.getSpeed(Skull1);
+        else:
+            Skull2 = char(image, *skullStats, speed, coords[i], name)
+            Enemys.add(Skull2); turnDict[Skull2] = char.getSpeed(Skull2);
+
+def sortDictTurn():
+    global listTurn; global turnDict;
+    turnDict = dict(sorted(turnDict.items(), key=operator.itemgetter(1),reverse=True))
+    for i in turnDict.keys():
+        listTurn.append(i);
 
 
 # Call the screen that will be loaded according to the button clicked
@@ -184,12 +284,11 @@ def updateScreenType(typeButton):
         menus.fade.backgroundFade(True, 'in', 25);
         Pve.selectScreen();
     
-    
-
 # Necessary class variables for general access
 Play = menus.play();
 Menu = menus.menu();
 Pve = pve();
+Combat = combat();
 
 def main():
     # Global variables
@@ -283,18 +382,14 @@ def main():
                 indexIdle3 += 1;
         elif (screenType == 'Combat'):
             if oneTime == 0:
-                Pve.createHeroes();
-                Pve.createEnemys();
+                createHeroes();
+                createEnemys();
                 oneTime = 1;
-                turnDict = sorted(turnDict.items(), key = lambda x:x[1]);
+                sortDictTurn();
                 print(turnDict);
-            Pve.combatScreen();
+            Combat.combatScreen();
 
-        
-
-        # RENDER YOUR GAME HERE
-        
-        pygame.display.set_caption(screenType)
+        # Game render
         pygame.display.flip(); # Update game screen
         clock.tick(60);  # limits FPS to 60
 
