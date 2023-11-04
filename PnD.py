@@ -46,6 +46,7 @@ allSpeed = []
 dictButtons = {};
 turnDict = {};
 listTurn = [];
+indexTurn = 0;
 
 
 class char(pygame.sprite.Sprite):
@@ -60,6 +61,7 @@ class char(pygame.sprite.Sprite):
         self.speed = speed;
         self.type = typeAtk;
         self.image = image;
+        self.IndexDefense = 0;
         self.state = ''; #Idle, defense
         self.image = pygame.transform.scale(self.image, (70, 70));
         self.rect = self.image.get_rect() ;
@@ -83,16 +85,17 @@ class char(pygame.sprite.Sprite):
         return self.hp;
 
     def attack(self, Char):
-        if Char.state == 'Defense':
-            if self.type == 'AD':
-                Char.hp = Char.hp - ((self.atk) * (50/(50 + (Char.fisicalDef*2))));
-            else:
-                Char.hp = Char.hp - ((self.atk) * (50/(50 + (Char.magicalDef*2))));
+        if self.type == 'AD':
+            Char.hp = Char.hp - ((self.atk) * (50/(50 + (Char.fisicalDef))));
         else:
-            if self.type == 'AD':
-                Char.hp = Char.hp - ((self.atk) * (50/(50 + Char.fisicalDef)));
-            else:
-                Char.hp = Char.hp - ((self.atk) * (50/(50 + Char.magicalDef)));
+            Char.hp = Char.hp - ((self.atk) * (50/(50 + (Char.magicalDef))));
+        print(f'hp: {Char.hp}/{Char.maxHp}')
+    
+    def setDefense(self):
+        self.IndexDefense = 1;
+        self.fisicalDef = self.fisicalDef * 2;
+        self.magicalDef = self.magicalDef * 2;
+        return; 
             
 
 # Class for the PVE mode required on the PDF
@@ -141,20 +144,9 @@ class pve():
                 self.dictButtons[key] = imageRect;
             screen.blit(buttonImage, self.listButtonsCords[i]);
 
-    def combatScreen(self):
-        Heroes.update() ; Enemys.update();
-        Heroes.draw(screen) ; Enemys.draw(screen);
-        self.menuBar();
-
-    def menuBar(self):
-        coords = [(10, 508), (739, 508)];
-        bar = ['menuBar', 'infoBar']
-        for i in range(2):
-            image = pygame.image.load(f'Images\\Assets\\{bar[i]}.png').convert_alpha();
-            screen.blit(image, coords[i]);
-
 class combat():
-    def combatScreen(self, indexTurn=4):
+    def combatScreen(self, indexTurn):
+        global dictButtons;
         Heroes.update() ; Enemys.update();
         Heroes.draw(screen) ; Enemys.draw(screen);
         self.menuBar();
@@ -173,11 +165,15 @@ class combat():
         coords = [550, 625, 700]
 
         attackText = font.render(f"Attack", True, (0, 0, 0));
-        attackRect = attackText.get_rect(); attackRect.move((445, 604))
+        attackRect = attackText.get_rect(); attackRect.move((445, 604));
+        dictButtons['Attack'] = attackRect;
         skillText = font.render(f"Skill", True, (0, 0, 0));
-        skillRect = skillText.get_rect(); skillRect.move((445, 604))
+        skillRect = skillText.get_rect(); skillRect.move((445, 604));
+        dictButtons['Skill'] = skillRect;
         defendText = font.render(f"Defend", True, (0, 0, 0));
         defendRect = defendText.get_rect(); defendRect.move((445, 604));
+        dictButtons['Defend'] = defendRect;
+
         if (persona.getId() == 'Skull0' or persona.getId() == 'Skull1'):
             text = font.render(f"It's enemy's turn!", True, (0, 0, 0));
         else:
@@ -199,8 +195,6 @@ def createHeroes():
     for i in range(len(Pve.listHeroes)):
         image = pygame.image.load(f'Images\\Players\\{Pve.listHeroes[i]}\\{(Pve.listHeroes[i] + '.png')}').convert_alpha();
         image = pygame.transform.scale(image, (150, 150));
-        imageRect = image.get_rect();
-        imageRect = imageRect.move(coords[i]);
         name = str(Pve.listHeroes[i])
         speed = random.randrange(1, 20);
         while speed in allSpeed:
@@ -227,19 +221,20 @@ def createEnemys():
     for i in range(2):
         image = pygame.image.load(f'Images\\Monsters\\Skull.png').convert_alpha();
         image = pygame.transform.scale(image, (200, 200));
-        imageRect = image.get_rect();
-        imageRect = imageRect.move(coords[i]);
         name = 'Skull' + str(i);
         speed = random.randrange(1, 20); 
+        
         while speed in allSpeed:
             speed = random.randrange(1, 20);
         allSpeed.append(speed)
         if (i == 0):
             Skull1 = char(image, *skullStats, speed, coords[i], name)
             Enemys.add(Skull1); turnDict[Skull1] = char.getSpeed(Skull1);
+            dictButtons[Skull1] = Skull1.rect;
         else:
             Skull2 = char(image, *skullStats, speed, coords[i], name)
             Enemys.add(Skull2); turnDict[Skull2] = char.getSpeed(Skull2);
+            dictButtons[Skull2] = Skull2.rect;
 
 def sortDictTurn():
     global listTurn; global turnDict;
@@ -283,6 +278,10 @@ def updateScreenType(typeButton):
         screenType = 'PVE'
         menus.fade.backgroundFade(True, 'in', 25);
         Pve.selectScreen();
+
+def action(typeButton, indexTurn, selectedChar):
+    if (typeButton == 'Attack'):
+        listTurn[indexTurn].attack(selectedChar)
     
 # Necessary class variables for general access
 Play = menus.play();
@@ -297,6 +296,7 @@ def main():
     global lastScreenType;
     global selectSound;
     global turnDict;
+    global indexTurn;
 
     # Shows the game menu when execute
     Menu.menuScreen();
@@ -306,6 +306,7 @@ def main():
     indexIdle3 = 0;
     contTime = 0;
     oneTime = 0;
+    selectedChar = '';
 
     # Cooldown variables for delay
     lastTick = pygame.time.get_ticks();
@@ -348,7 +349,19 @@ def main():
                                 if (key in Pve.dictButtons):
                                     if (Pve.listHeroesTypes[list(Pve.dictButtons).index(key)] not in Pve.listHeroes) and (len(Pve.listHeroes) < 3):
                                         Pve.listHeroes.append(Pve.listHeroesTypes[list(Pve.dictButtons).index(key)]);
-                                            
+                elif (screenType == 'Combat'):
+                    for (key, value) in dictButtons.items():
+                        if selectedChar != '':
+                            print('aqui')
+                            print(selectedChar);
+                            if (value.collidepoint(mouse_pos)):
+                                if (value == dictButtons[key]): 
+                                    print('aqui2')  
+                                    action(key, indexTurn, selectedChar);
+                        elif key in listTurn:
+                            selectedChar = key;
+                            print(selectedChar);
+                                
                                                        
         if (screenType == 'Menu'):
             if ((pygame.time.get_ticks() - lastTick)  >=  180):
@@ -387,7 +400,7 @@ def main():
                 oneTime = 1;
                 sortDictTurn();
                 print(turnDict);
-            Combat.combatScreen();
+            Combat.combatScreen(indexTurn);
 
         # Game render
         pygame.display.flip(); # Update game screen
