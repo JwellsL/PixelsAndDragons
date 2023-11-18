@@ -194,7 +194,7 @@ class combat():
         coords = [550, 625, 700]
 
         attackText = font.render(f"Attack", True, (0, 0, 0));
-        attackRect = attackText.get_rect(); attackRect.move((445, 604));
+        attackText = attackText.get_rect(); attackRect.move((445, 604));
         self.dictButtons['Attack'] = attackRect;
         skillText = font.render(f"Skill", True, (0, 0, 0));
         skillRect = skillText.get_rect(); skillRect.move((445, 604));
@@ -316,6 +316,8 @@ def updateScreenType(typeButton):
         screenType = 'PVE'
         menus.fade.backgroundFade(True, 'in', 25);
         Pve.selectScreen();
+    elif (typeButton == ('Restart.png'):
+        pass
 
 # Função que define qual o personagem clicado (no momento atual do jogo, a jogabilidade é apenas no mouse)
 def action(typeButton, charTurn, selectedChar):
@@ -329,11 +331,22 @@ def action(typeButton, charTurn, selectedChar):
         charTurn.setDefense();
 
 def death(Char):
-    listTurn.remove(listTurn.index(selectedChar.getId()));
+    listTurn.remove(Char);
     if ((Char.id == 'Skull0') or (Char.id == 'Skull1')):
         Enemys.remove(Char);
     else:
         Heroes.remove(Char);
+    if ((len(Heroes.sprites() == 0) or (len(Enemys.sprites()) == 0):
+        gameOver();
+
+def gameOver():
+    screen.blit("Black Background", (0, 0));
+    overText = font.render(f"Game Over", True, (0, 255, 255));
+    overText = overText.get_rect(); overText.move((0, 0));
+    # Restart button configuration, it goes back to the choose chars screen, screentype = PVE
+    pass
+    # Load quit button
+    
     
 # Variáveis necessarias para acesso geral
 Play = menus.play();
