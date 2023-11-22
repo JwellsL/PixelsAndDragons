@@ -319,26 +319,17 @@ def updateScreenType(typeButton):
     elif (typeButton == ('Restart.png'):
         pass
 
-# Função que define qual o personagem clicado (no momento atual do jogo, a jogabilidade é apenas no mouse)
-def action(typeButton, charTurn, selectedChar):
-    global listTurn;
-    if (typeButton == 'Attack'):
-        charTurn.attack(selectedChar);
-    elif (typeButton == 'Skill'):
-        # charTurn.skill(selectedChar);
-        pass
-    elif (typeButton == 'Defend'):
-        charTurn.setDefense();
-
 def death(Char):
-    listTurn.remove(Char);
     if ((Char.id == 'Skull0') or (Char.id == 'Skull1')):
         Enemys.remove(Char);
     else:
         Heroes.remove(Char);
     if ((len(Heroes.sprites() == 0) or (len(Enemys.sprites()) == 0):
-        gameOver();
+        menus.gameOver();
+    listTurn.remove(Char)
 
+
+'''
 def gameOver():
     screen.blit("Black Background", (0, 0));
     overText = font.render(f"Game Over", True, (0, 255, 255));
@@ -346,7 +337,7 @@ def gameOver():
     # Restart button configuration, it goes back to the choose chars screen, screentype = PVE
     pass
     # Load quit button
-    
+'''
     
 # Variáveis necessarias para acesso geral
 Play = menus.play();
@@ -435,11 +426,12 @@ def main():
                         for (key, value) in Combat.dictButtons.items():
                             if (value == Combat.dictButtons[key]): # botoes
                                 if (key == 'Attack'):
-                                    action(key, listTurn[indexTurn], selectedChar);
+                                    charTurn.attack(selectedChar);
                                 elif (key == 'Skill'):
-                                    action(key, listTurn[indexTurn], selectedChar);
+                                    charTurn.skill(selectedChar);
                                 else:
-                                    action(key, listTurn[indexTurn], '');
+                                    charTurn.setDefense();
+
                     indexTurn += 1;
                                     
         # Faz diferentes ações baseado no tipo de tela                                            
@@ -494,15 +486,14 @@ def main():
                 selectedChar = random.choice(listTurn);
                 while ((selectedChar.id == 'Skull0') or (selectedChar.id == 'Skull1')):
                     selectedChar = random.choice(listTurn);
-                action('Attack', listTurn[indexTurn], selectedChar);
+                charTurn.attack(selectedChar)
                 indexTurn += 1;
             Combat.combatScreen(indexTurn);
 
-        # Renderização do jogo
-        pygame.display.flip(); # Atualiza a tela do jogo
-        clock.tick(60);  # Limita o fps a 60
+        # Game render
+        pygame.display.flip(); # game screen update
+        clock.tick(60);  # 60fps limit
 
     pygame.quit();
-
 
 main();
