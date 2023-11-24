@@ -31,13 +31,13 @@ Heroes = pygame.sprite.Group();
 Enemys = pygame.sprite.Group();
 
 # Variáveis dos status dos personagens
-# ((8-25), (8-25), (5-20), 'AP/AD') # Valores para as configurações 
-mageStats = (9, 24, 6, 6, 'AP');
-PaladinStats = (25, 11, 15, 12, 'AD');
-monkStats = (19, 16, 9, 8, 'AD');
-rangerStats = (14, 13, 12, 8, 'AD');
-clericStats = (11, 9, 11, 13, 'AP');
-skullStats = (30, 2, 10, 20, 'AD');
+# (HP: (8-25), MANA: (0-50), ATK: (8-25), FDEF: (5-20), MDEF: (5-20), 'AP/AD') # Valores para as configurações 
+mageStats = (9, 10, 24, 6, 6, 'AP');
+PaladinStats = (25, 20,  11, 15, 12, 'AD');
+monkStats = (19, 50, 16, 9, 8, 'AD');
+rangerStats = (14, 0, 13, 12, 8, 'AD');
+clericStats = (11, 30, 9, 11, 13, 'AP');
+skullStats = (30, 0, 2, 10, 20, 'AD');
 
 # Lista de variáveis de velocidade (no sistema de d&d, a velocidade não pode se repetir)
 allSpeed = []
@@ -51,11 +51,14 @@ selectedChar = '';
 
 # Classe de criação de personagem
 class char(pygame.sprite.Sprite):
-    def __init__(self, image, hp, atk, fdef, mdef, typeAtk, speed, coords, name):
+    def __init__(self, image, hp, mana, atk, fdef, mdef, typeAtk, speed, coords, name):
         pygame.sprite.Sprite.__init__(self)
         self.id = name;
         self.hp = hp;
         self.maxHp = hp;
+        self.mana = mana;
+        self.maxMana = mana;
+        self.manaCost = 10;
         self.atk = atk;
         self.fisicalDef = fdef;
         self.magicalDef = mdef;
@@ -63,7 +66,8 @@ class char(pygame.sprite.Sprite):
         self.type = typeAtk;
         self.image = image;
         self.IndexDefense = 0;
-        self.state = ''; #Idle, defense
+        self.stateRounds = 0;
+        self.state = '';
         self.image = pygame.transform.scale(self.image, (70, 70));
         self.rect = self.image.get_rect() ;
         self.rect = self.rect.move(coords);
@@ -100,18 +104,56 @@ class char(pygame.sprite.Sprite):
         if (Char.hp <= 0):
             death(Char)
         print(f'nome: {Char.id}, hp: {Char.hp}/{Char.maxHp}')
+        return;
 
     # Função de aumentar a defesa do personagem ao escolher essa ação 
     def setDefense(self):
-        if self.IndexDefense == 0:
-            self.IndexDefense = 1;
-            self.fisicalDef = self.fisicalDef * 2;
-            self.magicalDef = self.magicalDef * 2;
-        else:
-            self.IndexDefense = 0;
+        self.IndexDefense = 1;
+        self.fisicalDef = self.fisicalDef * 2;
+        self.magicalDef = self.magicalDef * 2;
+        return;
+
+    def skill(self, selectedChar):
+        global listTurn;
+        if (self.id == 'Mage'):
+            self.atk = self.atk*2;
+            for tempChar in listTurn:
+                if (tempChar.id == 'Skull0' or 'Skull1'):
+                    self.attack(tempChar);
+            self.atk = self.atk/2;
+        elif (self.id == 'Paladin'):
+            self.indexDefense = 2;
+            self.fisicalDef = self.fisicalDef * 3;
+            self.magicalDef = self.magicalDef * 3;
+        elif (self.id == 'Cleric'):
+            for tempChar in listTurn:
+                if (tempChar.id != 'Skull0' and 'Skull1'):
+                    tempChar.hp += (tempChar.maxHp * 0.25);
+        elif (self.id == 'Ranger'):
+            selectedChar.state = 'Poisoned';
+            self.attack(selectedChar);
+        elif (self.id == 'Monk'):
+            selectedChar.state = 'Stunned';
+            self.attack(selectedChar);
+    
+    def statsVerify(self):
+        # Each turn will verify if the player/monster has def boost
+        if (self.indexDefense == 1):
+            self.indexDefense == 0;
             self.fisicalDef = self.fisicalDef / 2;
             self.magicalDef = self.magicalDef / 2;
-        return; 
+        if (self.state == 'Normal'):
+            return True;
+        elif (self.state == 'Poisoned'):
+            self.hp -= (self.hp * 0.15);
+        elif (self.state == 'Stunned'):
+            if (self.stateRounds = 1):
+                self.stateRounds = 0;
+                self.state == 'Normal';
+                return True;
+            self.stateRounds += 1;
+            return False;
+        
             
 
 # Classe do modo Pve exigido no PDF
@@ -415,6 +457,8 @@ def main():
                                         Pve.listHeroes.append(Pve.listHeroesTypes[list(Pve.dictButtons).index(key)]);
                 elif (screenType == 'Combat'):
                     selectedChar = '';
+                    ### VERIFICACAO DE STATUS E ESTADOS PARA JOGADA ###
+                    ### VERIFICACAO DE STATUS DO PALADINO. CASO SELF.INDEXDEFENSE == 2, SELECTEDCHAR = PALADINO ###
                     if (indexTurn >= len(listTurn)):
                         indexTurn = 0;
                     if ((listTurn[indexTurn].getId() != 'Skull1') or (listTurn[indexTurn].getId() != 'Skull0')):
@@ -425,6 +469,7 @@ def main():
                                     selectedChar = key;
                         for (key, value) in Combat.dictButtons.items():
                             if (value == Combat.dictButtons[key]): # botoes
+                                charTurn.statsVerify();
                                 if (key == 'Attack'):
                                     charTurn.attack(selectedChar);
                                 elif (key == 'Skill'):
