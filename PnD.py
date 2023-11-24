@@ -17,14 +17,14 @@ running = True;
 pygame.mixer.init();
 pygame.mixer.music.set_volume(0);
 # Necessary sound variables
-selectSound = pygame.mixer.Sound('selectSound.mp3');
+selectSound = pygame.mixer.Sound('Sounds\\selectSound.mp3');
 
 # Testar se o mixer foi inicializado
 if (pygame.mixer.get_init() != True):
     pygame.mixer.init();
 
 # Variável de fonte
-font = pygame.font.Font('goblin.ttf', 18)
+font = pygame.font.Font('Fonts\\AGoblinAppears-o2aV.ttf', 18)
 
 # Variáveis de grupos
 Heroes = pygame.sprite.Group();
@@ -34,7 +34,7 @@ Enemys = pygame.sprite.Group();
 # (HP: (8-25), MANA: (0-50), ATK: (8-25), FDEF: (5-20), MDEF: (5-20), 'AP/AD') # Valores para as configurações 
 mageStats = (9, 10, 24, 6, 6, 'AP');
 PaladinStats = (25, 20,  11, 15, 12, 'AD');
-monkStats = (19, 50, 16, 9, 8, 'AD');
+monkStats = (19, 20, 16, 9, 8, 'AD');
 rangerStats = (14, 0, 13, 12, 8, 'AD');
 clericStats = (11, 30, 9, 11, 13, 'AP');
 skullStats = (30, 0, 2, 10, 20, 'AD');
@@ -43,11 +43,18 @@ skullStats = (30, 0, 2, 10, 20, 'AD');
 allSpeed = []
 
 # Outras variáveis 
-dictButtons = {};
+enemyButtons = [];
 turnDict = {};
 listTurn = [];
 indexTurn = 0;
 selectedChar = '';
+oneTime = 0;
+
+arrow = pygame.image.load('Images\\Assets\\arrow.png').convert_alpha();
+arrowCoordsButton = [(65, 600), (93, 679), (402, 600)];
+arrowCoordsChar = [(686, 220), (686, 420)];
+indexButtonArrow = 0;
+indexCharArrow = 0;
 
 # Classe de criação de personagem
 class char(pygame.sprite.Sprite):
@@ -65,9 +72,9 @@ class char(pygame.sprite.Sprite):
         self.speed = speed;
         self.type = typeAtk;
         self.image = image;
-        self.IndexDefense = 0;
+        self.indexDefense = 0;
         self.stateRounds = 0;
-        self.state = '';
+        self.state = 'Normal';
         self.image = pygame.transform.scale(self.image, (70, 70));
         self.rect = self.image.get_rect() ;
         self.rect = self.rect.move(coords);
@@ -88,53 +95,53 @@ class char(pygame.sprite.Sprite):
         return self.hp;
 
     def getMaxHp(self):
-        return self.hp;
+        return self.maxHp;
 
     # Função de ataque dos personagens. se baseia no tipo de dano e defesa dos participantes
     def attack(self, Char):
-        print(f'{self.id} esta atacando {Char.getId()}');
-
-        if (self.IndexDefense == 1):
-            self.setDefense();
+        print(f'{self.id} esta atacando {Char.id}');
         if self.type == 'AD':
             Char.hp = Char.hp - ((self.atk) * (50/(50 + (Char.fisicalDef))));
         else:
             Char.hp = Char.hp - ((self.atk) * (50/(50 + (Char.magicalDef))));
-    
+        print(f'nome: {Char.id}, hp: {math.floor(Char.hp)}/{Char.maxHp}');
         if (Char.hp <= 0):
-            death(Char)
-        print(f'nome: {Char.id}, hp: {Char.hp}/{Char.maxHp}')
-        return;
-
+            death(Char);
+        
     # Função de aumentar a defesa do personagem ao escolher essa ação 
-    def setDefense(self):
-        self.IndexDefense = 1;
+    def buffDefense(self):
+        self.indexDefense = 1;
         self.fisicalDef = self.fisicalDef * 2;
         self.magicalDef = self.magicalDef * 2;
-        return;
 
     def skill(self, selectedChar):
         global listTurn;
         if (self.id == 'Mage'):
-            self.atk = self.atk*2;
-            for tempChar in listTurn:
-                if (tempChar.id == 'Skull0' or 'Skull1'):
-                    self.attack(tempChar);
-            self.atk = self.atk/2;
+            self.atk = self.atk*1.25;
+            for i in range(len(Enemys.sprites())):
+                self.attack(Enemys.sprites()[i]);
+            self.atk = self.atk/1.25;
+            self.mana -+ self.manaCost;
         elif (self.id == 'Paladin'):
             self.indexDefense = 2;
             self.fisicalDef = self.fisicalDef * 3;
             self.magicalDef = self.magicalDef * 3;
         elif (self.id == 'Cleric'):
-            for tempChar in listTurn:
-                if (tempChar.id != 'Skull0' and 'Skull1'):
-                    tempChar.hp += (tempChar.maxHp * 0.25);
+            for i in range(len(Heroes.sprites())):
+                if (Heroes.sprites()[i].hp < Heroes.sprites()[i].maxHp):
+                    Heroes.sprites()[i].hp += (Heroes.sprites()[i].maxHp * 0.25);
+                if (Heroes.sprites()[i].hp > Heroes.sprites()[i].maxHp):
+                    Heroes.sprites()[i].hp = Heroes.sprites()[i].maxHp;
+            self.mana -+ ((self.manaCost/2)*len(Heroes.sprites()));
         elif (self.id == 'Ranger'):
             selectedChar.state = 'Poisoned';
+            print(f'{selectedChar.id} foi envenenado!')
             self.attack(selectedChar);
         elif (self.id == 'Monk'):
             selectedChar.state = 'Stunned';
+            print(f'{selectedChar.id} foi stunnado!')
             self.attack(selectedChar);
+            self.mana -+ self.manaCost;
     
     def statsVerify(self):
         # Each turn will verify if the player/monster has def boost
@@ -145,22 +152,80 @@ class char(pygame.sprite.Sprite):
         if (self.state == 'Normal'):
             return True;
         elif (self.state == 'Poisoned'):
-            self.hp -= (self.hp * 0.15);
-        elif (self.state == 'Stunned'):
-            if (self.stateRounds = 1):
+            if (self.stateRounds == 2):
                 self.stateRounds = 0;
                 self.state == 'Normal';
+                print(f'{self.id} voltou ao normal!');
+            else:
+                self.hp -= (self.hp * 0.15);
+        elif (self.state == 'Stunned'):
+            if (self.stateRounds == 1):
+                self.stateRounds = 0;
+                self.state == 'Normal';
+                print(f'{self.id} voltou ao normal!');
                 return True;
             self.stateRounds += 1;
             return False;
-        
-            
+
+        # Função que cria os heróis com base nos personagens escolhidos
+    def createHeroes():
+        coords = [(250, 220), (200, 320), (250, 420)];
+        print();
+        for i in range(len(Pve.listHeroes)):
+            image = pygame.image.load(f'Images\\Players\\{Pve.listHeroes[i]}\\{(Pve.listHeroes[i] + '.png')}').convert_alpha();
+            image = pygame.transform.scale(image, (150, 150));
+            name = str(Pve.listHeroes[i])
+            speed = random.randrange(1, 20);
+            # Verifica se a velocidade ja existe pois nao pode ser repetida
+            while speed in allSpeed:
+                speed = random.randrange(1, 20);
+            allSpeed.append(speed)
+            # Verifica qual personagem escolhido e o cria com sua respectativa estatística alem de adicioná-lo a um dicionário 
+            if (Pve.listHeroes[i] == 'Paladin'):
+                Paladin = char(image, *PaladinStats, speed, coords[i], name)
+                Heroes.add(Paladin); turnDict[Paladin] = Paladin.getSpeed();
+            elif (Pve.listHeroes[i] == 'Mage'):
+                Mage = char(image, *mageStats, speed, coords[i], name)
+                Heroes.add(Mage); turnDict[Mage] = Mage.getSpeed();
+            elif (Pve.listHeroes[i] == 'Cleric'):
+                Cleric = char(image, *clericStats, speed, coords[i], name)
+                Heroes.add(Cleric); turnDict[Cleric] = Cleric.getSpeed();
+            elif (Pve.listHeroes[i] == 'Ranger'):
+                Ranger = char(image, *rangerStats, speed, coords[i], name)
+                Heroes.add(Ranger); turnDict[Ranger] = Ranger.getSpeed();
+            elif (Pve.listHeroes[i] == 'Monk'):
+                Monk = char(image, *monkStats, speed, coords[i], name)
+                Heroes.add(Monk); turnDict[Monk] = Monk.getSpeed();
+
+    # Função de criação de inimigos
+    def createEnemys():
+        global enemyButtons;
+        coords = [(724, 220), (724, 420)];
+        for i in range(2):
+            image = pygame.image.load(f'Images\\Monsters\\Skull.png').convert_alpha();
+            image = pygame.transform.scale(image, (200, 200));
+            name = 'Skull' + str(i);
+            speed = random.randrange(1, 20); 
+
+            # Verifica repetição de velocidade
+            while speed in allSpeed:
+                speed = random.randrange(1, 20);
+            allSpeed.append(speed);
+            if (i == 0):
+                Skull1 = char(image, *skullStats, speed, coords[i], name)
+                Enemys.add(Skull1); turnDict[Skull1] = char.getSpeed(Skull1);
+                enemyButtons.append(Skull1);
+            else:
+                Skull2 = char(image, *skullStats, speed, coords[i], name)
+                Enemys.add(Skull2); turnDict[Skull2] = char.getSpeed(Skull2);
+                enemyButtons.append(Skull2);
+        print();
 
 # Classe do modo Pve exigido no PDF
 class pve():
     def selectScreen(self):     
         # Carrega o plano de fundo com efeito fade
-        self.bgimage = pygame.image.load('BackgroundPve1.png').convert();
+        self.bgimage = pygame.image.load('Images\\Backgrounds\\BackgroundPve1.png').convert();
         self.bgimage.set_alpha(0);
         screen.blit(self.bgimage, (0, 0));
         menus.fade.backgroundFade(self.bgimage, 'out', 5);
@@ -172,7 +237,7 @@ class pve():
         self.listButtonsImages = ['Paladin.png', 'Monk.png', 'Ranger.png', 'Cleric.png', 'Mage.png'];
         self.listButtonsCords = [(150, 150), (425, 150), (700, 150), (285, 415), (565, 415)]; self.dictButtons = {};
 
-        self.midBlack = pygame.image.load('BackgroundOptions.png').convert_alpha();
+        self.midBlack = pygame.image.load('Images\\Backgrounds\\BackgroundOptions.png').convert_alpha();
         self.midBlack.set_alpha(255);
         self.teamScreen();
 
@@ -197,7 +262,7 @@ class pve():
         # Coloca os botões na tela e os adiciona a um dicionário com o valor do rect
         for i in range(len(self.listHeroesTypes)):
             key = self.listHeroesTypes[i] + '.png';
-            buttonImage = pygame.image.load(f'{(key)}').convert_alpha();
+            buttonImage = pygame.image.load(f'Images\\Players\\{self.listHeroesTypes[i]}\\{(self.listHeroesTypes[i] + '.png')}').convert_alpha();
             buttonImage = pygame.transform.scale(buttonImage, (150, 150))
             imageRect = buttonImage.get_rect();
             imageRect = imageRect.move(self.listButtonsCords[i]);
@@ -208,9 +273,9 @@ class pve():
 # Classe feita para a parte de combate do jogo
 class combat():
     def combatScreen(self, indexTurn):
-        self.dictButtons = {};
+        self.actions = ['Attack', 'Skill', 'Defend'];
         # Atualiza e redesenha os heróis e inimigos na tela
-        self.bgimage = pygame.image.load('BackgroundPve1.png').convert();
+        self.bgimage = pygame.image.load('Images\\Backgrounds\\BackgroundPve1.png').convert();
         screen.blit(self.bgimage, (0, 0));
 
         Heroes.update() ; Enemys.update();
@@ -225,7 +290,7 @@ class combat():
         coords = [(10, 508), (739, 508)];
         bar = ['menuBar', 'infoBar']
         for i in range(2):
-            image = pygame.image.load(f'{bar[i]}.png').convert_alpha();
+            image = pygame.image.load(f'Images\\Assets\\{bar[i]}.png').convert_alpha();
             screen.blit(image, coords[i]);
 
     # Escreve todo o conteúdo requisitado no PDF
@@ -236,14 +301,8 @@ class combat():
         coords = [550, 625, 700]
 
         attackText = font.render(f"Attack", True, (0, 0, 0));
-        attackText = attackText.get_rect(); attackRect.move((445, 604));
-        self.dictButtons['Attack'] = attackRect;
         skillText = font.render(f"Skill", True, (0, 0, 0));
-        skillRect = skillText.get_rect(); skillRect.move((445, 604));
-        self.dictButtons['Skill'] = skillRect;
         defendText = font.render(f"Defend", True, (0, 0, 0));
-        defendRect = defendText.get_rect(); defendRect.move((445, 604));
-        self.dictButtons['Defend'] = defendRect;
         # Caso nao seja um herói, escreve apenas inimigo
         text = font.render(f"It's {persona.getId()} turn!", True, (0, 0, 0)); 
         # Textos para a barra de menu
@@ -253,61 +312,8 @@ class combat():
         screen.blit(skillText, (136, 683));
         # Textos para a barra de status
         for i in range(len(Heroes)):
-                textHp = font.render(f'{Heroes.sprites()[i].getId()}:  {Heroes.sprites()[i].getHp()}/{Heroes.sprites()[i].getMaxHp()}', True, (0, 0, 0));
+                textHp = font.render(f'{Heroes.sprites()[i].getId()}:  {math.floor(Heroes.sprites()[i].getHp())}/{Heroes.sprites()[i].getMaxHp()}', True, (0, 0, 0));
                 screen.blit(textHp, (760, coords[i]));
-
-        
-# Função que cria os heróis com base nos personagens escolhidos
-def createHeroes():
-    coords = [(250, 220), (200, 320), (250, 420)];
-    for i in range(len(Pve.listHeroes)):
-        key = Pve.listHeroes[i] + '.png';
-        image = pygame.image.load(f'{(key)}').convert_alpha();
-        image = pygame.transform.scale(image, (150, 150));
-        name = str(Pve.listHeroes[i])
-        speed = random.randrange(1, 20);
-        # Verifica se a velocidade ja existe pois nao pode ser repetida
-        while speed in allSpeed:
-            speed = random.randrange(1, 20);
-        allSpeed.append(speed)
-        # Verifica qual personagem escolhido e o cria com sua respectativa estatística alem de adicioná-lo a um dicionário 
-        if (Pve.listHeroes[i] == 'Paladin'):
-            Paladin = char(image, *PaladinStats, speed, coords[i], name)
-            Heroes.add(Paladin); turnDict[Paladin] = Paladin.getSpeed();
-        elif (Pve.listHeroes[i] == 'Mage'):
-            Mage = char(image, *mageStats, speed, coords[i], name)
-            Heroes.add(Mage); turnDict[Mage] = Mage.getSpeed();
-        elif (Pve.listHeroes[i] == 'Cleric'):
-            Cleric = char(image, *clericStats, speed, coords[i], name)
-            Heroes.add(Cleric); turnDict[Cleric] = Cleric.getSpeed();
-        elif (Pve.listHeroes[i] == 'Ranger'):
-            Ranger = char(image, *rangerStats, speed, coords[i], name)
-            Heroes.add(Ranger); turnDict[Ranger] = Ranger.getSpeed();
-        elif (Pve.listHeroes[i] == 'Monk'):
-            Monk = char(image, *monkStats, speed, coords[i], name)
-            Heroes.add(Monk); turnDict[Monk] = Monk.getSpeed();
-
-# Função de criação de inimigos
-def createEnemys():
-    coords = [(724, 220), (724, 420)];
-    for i in range(2):
-        image = pygame.image.load(f'Skull.png').convert_alpha();
-        image = pygame.transform.scale(image, (200, 200));
-        name = 'Skull' + str(i);
-        speed = random.randrange(1, 20); 
-
-        # Verifica repetição de velocidade
-        while speed in allSpeed:
-            speed = random.randrange(1, 20);
-        allSpeed.append(speed);
-        if (i == 0):
-            Skull1 = char(image, *skullStats, speed, coords[i], name)
-            Enemys.add(Skull1); turnDict[Skull1] = char.getSpeed(Skull1);
-            dictButtons[Skull1] = Skull1.rect;
-        else:
-            Skull2 = char(image, *skullStats, speed, coords[i], name)
-            Enemys.add(Skull2); turnDict[Skull2] = char.getSpeed(Skull2);
-            dictButtons[Skull2] = Skull2.rect;
 
 # Função que organiza o dicionário por ordem de velocidade decrescente e o transforma em lista
 def sortDictTurn():
@@ -358,32 +364,45 @@ def updateScreenType(typeButton):
         screenType = 'PVE'
         menus.fade.backgroundFade(True, 'in', 25);
         Pve.selectScreen();
-    elif (typeButton == ('Restart.png'):
-        pass
+    elif (typeButton == ('restartButton.png')):
+        screenType = 'PlayMode';
+        menus.fade.backgroundFade(True, 'in', 25);
+        Play.playScreen();
 
 def death(Char):
+    global arrowCoordsButton ; global indexButtonArrow ; 
+    global arrowCoordsChar ; global indexCharArrow ;
+    global screenType;
+    listTurn.remove(Char);
+    arrowCoordsChar.remove(arrowCoordsChar[indexCharArrow]);
+    enemyButtons.remove(enemyButtons[indexCharArrow]);
     if ((Char.id == 'Skull0') or (Char.id == 'Skull1')):
         Enemys.remove(Char);
     else:
         Heroes.remove(Char);
-    if ((len(Heroes.sprites() == 0) or (len(Enemys.sprites()) == 0):
-        menus.gameOver();
-    listTurn.remove(Char)
+    if ((len(Heroes.sprites()) == 0) or (len(Enemys.sprites()) == 0)):
+        screenType = 'GameOver'
 
+def resetVariables():
+    global running;
+    global arrowCoordsButton;
+    global arrowCoordsChar;
+    global indexCharArrow;
+    global indexButtonArrow;
+    global oneTime;
 
-'''
-def gameOver():
-    screen.blit("Black Background", (0, 0));
-    overText = font.render(f"Game Over", True, (0, 255, 255));
-    overText = overText.get_rect(); overText.move((0, 0));
-    # Restart button configuration, it goes back to the choose chars screen, screentype = PVE
-    pass
-    # Load quit button
-'''
-    
+    Heroes.empty();
+    Enemys.empty();
+    oneTime = 0;
+    arrowCoordsButton = [(65, 600), (93, 679), (402, 600)];
+    arrowCoordsChar = [(686, 220), (686, 420)];
+    indexButtonArrow = 0;
+    indexCharArrow = 0;
+ 
 # Variáveis necessarias para acesso geral
 Play = menus.play();
 Menu = menus.menu();
+Over = menus.finish();
 Pve = pve();
 Combat = combat();
 
@@ -396,6 +415,13 @@ def main():
     global turnDict;
     global indexTurn;
     global selectedChar;
+    global arrow;
+    global arrowCoordsButton;
+    global arrowCoordsChar;
+    global indexCharArrow;
+    global indexButtonArrow;
+    global oneTime;
+
 
     # Mostra o menu do jogo quando executado
     Menu.menuScreen();
@@ -405,13 +431,12 @@ def main():
     indexIdle2 = 0;
     indexIdle3 = 0;
     contTime = 0;
-    oneTime = 0;
+    action = '';
 
     # Variável de delay
     lastTick = pygame.time.get_ticks();
 
     while running:
-    
         # Eventos
         # Fecha o jogo ao clicar no botão "quit" ou usar ALT + F4
         for event in pygame.event.get():
@@ -436,6 +461,7 @@ def main():
                                 if (key != screenType):
                                     screenType == key
                                 updateScreenType(key);
+                
                 elif (screenType == 'PlayMode'):
                     for (key, value) in Play.dictButtons.items():
                         if (value.collidepoint(mouse_pos)):
@@ -444,6 +470,7 @@ def main():
                                 if (key != screenType):
                                     screenType == key;   
                                 updateScreenType(key);
+                
                 elif (screenType == 'PVE'):
                     for (key, value) in Pve.dictButtons.items():
                         if (value.collidepoint(mouse_pos)):
@@ -454,31 +481,45 @@ def main():
                                 # Verifica se o personagem clicado ja está no time e se o tamanho do time é menor que 3, se sim, adiciona o personagem ao dicionario
                                 if (key in Pve.dictButtons):
                                     if (Pve.listHeroesTypes[list(Pve.dictButtons).index(key)] not in Pve.listHeroes) and (len(Pve.listHeroes) < 3):
+                                        resetVariables();
                                         Pve.listHeroes.append(Pve.listHeroesTypes[list(Pve.dictButtons).index(key)]);
-                elif (screenType == 'Combat'):
-                    selectedChar = '';
-                    ### VERIFICACAO DE STATUS E ESTADOS PARA JOGADA ###
-                    ### VERIFICACAO DE STATUS DO PALADINO. CASO SELF.INDEXDEFENSE == 2, SELECTEDCHAR = PALADINO ###
+            
+                elif (screenType == 'GameOver'):
+                    for (key, value) in Over.dictButtons.items():
+                        if (value.collidepoint(mouse_pos)):
+                            if (value == Over.dictButtons[key]):
+                                selectSound.play();
+                                if (key != screenType):
+                                    screenType == key; 
+                                updateScreenType(key);          
+
+            if event.type == pygame.KEYDOWN:
+                if ((charTurn.getId() != 'Skull1') or (charTurn.getId() != 'Skull0') and (screenType == 'Combat')):
                     if (indexTurn >= len(listTurn)):
                         indexTurn = 0;
-                    if ((listTurn[indexTurn].getId() != 'Skull1') or (listTurn[indexTurn].getId() != 'Skull0')):
-                        for (key, value) in dictButtons.items(): # inimigos
-                            if ((value.collidepoint(mouse_pos)) and (selectedChar == '')):
-                            # essa parte em diante do código de verificação não esta funcionando
-                                if key in listTurn:
-                                    selectedChar = key;
-                        for (key, value) in Combat.dictButtons.items():
-                            if (value == Combat.dictButtons[key]): # botoes
-                                charTurn.statsVerify();
-                                if (key == 'Attack'):
-                                    charTurn.attack(selectedChar);
-                                elif (key == 'Skill'):
-                                    charTurn.skill(selectedChar);
-                                else:
-                                    charTurn.setDefense();
-
-                    indexTurn += 1;
-                                    
+                    if event.key == pygame.K_RIGHT:
+                        if (action == ''):
+                            # Passar para proxima opção de ataque, skill ou defesa
+                            indexButtonArrow += 1;
+                            if (indexButtonArrow >= 3):
+                                indexButtonArrow = 0;
+                        elif (selectedChar == ''):
+                            # Passar para proxima opção qual personagem atacar
+                            indexCharArrow += 1;
+                            if (indexCharArrow >= len(Enemys.sprites())):
+                                indexCharArrow = 0;
+                    elif event.key == pygame.K_RETURN:
+                        if (action == ''):
+                            action = Combat.actions[indexButtonArrow];
+                            if (action == 'Defend'):
+                                selectedChar = ' ';
+                        elif (selectedChar == ''):
+                            selectedChar = enemyButtons[indexCharArrow];
+                    elif event.key == pygame.K_z:
+                        action = '';
+                ### VERIFICACAO DE STATUS E ESTADOS PARA JOGADA ###
+                # charTurn.statsVerify();
+              
         # Faz diferentes ações baseado no tipo de tela                                            
         if (screenType == 'Menu'):
             # Atualiza o menu com delay
@@ -488,6 +529,7 @@ def main():
         elif (screenType == 'PlayMode'):
             # Scrolla e tela para fazer animacao de caminhada
             Play.scroll -= 5;
+            
             if (contTime == 5):
                 for i in range(0, Play.tiles):
                     screen.blit(Play.bgimage, (i * Play.bgimage.get_width() + Play.scroll, 0));
@@ -516,24 +558,51 @@ def main():
                 Pve.updatePveMode(indexIdle3);
                 indexIdle3 += 1;
         elif (screenType == 'Combat'):
-            if (indexTurn >= len(listTurn)):
-                    indexTurn = 0;
             # Cria os times de cada lado
             if oneTime == 0:
-                createHeroes();
-                createEnemys();
+                char.createHeroes();
+                char.createEnemys();
                 oneTime = 1;
                 sortDictTurn();
-                print(turnDict);
-            
-            if (listTurn[indexTurn].getId() == 'Skull1') or (listTurn[indexTurn].getId() == 'Skull0'):
-                selectedChar = '';
-                selectedChar = random.choice(listTurn);
-                while ((selectedChar.id == 'Skull0') or (selectedChar.id == 'Skull1')):
-                    selectedChar = random.choice(listTurn);
-                charTurn.attack(selectedChar)
-                indexTurn += 1;
+            if (indexCharArrow >= len(Enemys.sprites())):
+                indexCharArrow = 0;
+            charTurn = listTurn[indexTurn];
             Combat.combatScreen(indexTurn);
+            if ((charTurn.getId() != 'Skull1') and (charTurn.getId() != 'Skull0')):
+                if ((action != '') and (selectedChar != '')):
+                    if (action == 'Attack'):
+                        charTurn.attack(selectedChar);
+                    elif (action == 'Skill'):
+                        charTurn.skill(selectedChar);
+                    else:
+                        charTurn.buffDefense();
+                    selectedChar = '';
+                    action = '';
+                    indexTurn += 1;
+                else:
+                    if ((action == '') and (len(Heroes.sprites()) and len(Enemys.sprites()) != 0)):
+                        screen.blit(arrow, arrowCoordsButton[indexButtonArrow]);
+                    elif ((action != '') and (len(Heroes.sprites()) and len(Enemys.sprites()) != 0)):
+                        screen.blit(arrow, arrowCoordsChar[indexCharArrow]);
+            elif ((charTurn.getId() == 'Skull1') or (charTurn.getId() == 'Skull0')):
+                for tempChar in listTurn:
+                    if tempChar.id == 'Paladin':
+                        if (tempChar.indexDefense == 2):
+                            selectedChar = 'Paladin';
+                else:
+                    selectedChar = random.choice(listTurn);
+                    while ((selectedChar.id == 'Skull0') or (selectedChar.id == 'Skull1')):
+                        selectedChar = random.choice(listTurn);
+                charTurn.attack(selectedChar)
+                selectedChar = '';
+                action = '';
+                indexTurn += 1;
+
+            if (indexTurn >= len(listTurn)):
+                indexTurn = 0;
+        elif (screenType == 'GameOver'):
+            Over.gameOver();
+        
 
         # Game render
         pygame.display.flip(); # game screen update
