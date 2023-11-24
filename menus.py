@@ -1,8 +1,11 @@
-import pygame
-import math
+import pygame ; import math ;
 
 screen = pygame.display.set_mode((1024, 768), pygame.NOFRAME);
 screen.fill((0, 0, 0));
+pygame.init()
+
+# Variável de fonte
+font = pygame.font.Font('Fonts\\AGoblinAppears-o2aV.ttf', 32)
 
 class fade():
 
@@ -194,45 +197,24 @@ class play():
         self.drawButtons();
         self.drawIdles(index1, index2);
 
-# Class for the PVE mode required on the PDF
-class pve():
-    def selectScreen(self):     
-        # Background image loand and calls fade effect on it
-        self.bgimage = pygame.image.load('Images\\Backgrounds\\BackgroundPve1.png').convert();
-        self.bgimage.set_alpha(0);
-        screen.blit(self.bgimage, (0, 0));
-        fade.backgroundFade(self.bgimage, 'out', 5);
-
-        self.listHeroes = [];
-
-        # List of menu buttons variables
-        self.listHeroesTypes = ['Paladin', 'Monk', 'Ranger', 'Cleric', 'Mage']
-        self.listButtonsImages = ['Paladin.png', 'Monk.png', 'Ranger.png', 'Cleric.png', 'Mage.png'];
-        self.listButtonsCords = [(150, 150), (425, 150), (700, 150), (285, 415), (565, 415)]; self.dictButtons = {};
-
-        self.midBlack = pygame.image.load('Images\\Backgrounds\\BackgroundOptions.png').convert_alpha();
-        self.midBlack.set_alpha(255);
-        self.teamScreen();
-
-    def teamScreen(self):
-        screen.blit(self.midBlack, (75, 75));
+class finish():
+    def gameOver(self):
+        screen.fill((0, 0, 0));
+        overText = font.render(f"Game Over", True, (0, 255, 255));
+        overText = overText.get_rect(); overText.move((0, 0));
+        # Restart button configuration, it goes back to the choose chars screen, screentype = PVE
+        pass
+        # Load quit button
         self.drawButtons();
 
-    def updatePveMode(self, index):
-        global screenType;
-
-        screen.blit(self.bgimage, (0, 0));
-        if (len(self.listHeroes) < 3):
-            self.teamScreen();
-        else:
-            screenType = 'Combat';
-            
     def drawButtons(self):
+        self.listButtonsImages = ['restartButton.png', 'quitButton.png'];
+        self.listButtonsCords = [(385, 389), (20, 700)]; self.dictButtons = {};
+        
         # Blit() menu buttons onto the screen and save them on a dictionary
-        for i in range(len(self.listHeroesTypes)):
-            key = self.listHeroesTypes[i] + '.png';
-            buttonImage = pygame.image.load(f'Images\\Players\\{self.listHeroesTypes[i]}\\{(self.listHeroesTypes[i] + '.png')}').convert_alpha();
-            buttonImage = pygame.transform.scale(buttonImage, (150, 150))
+        for i in range(len(self.listButtonsImages)):
+            key = self.listButtonsImages[i];
+            buttonImage = pygame.image.load(f'Images\\Buttons\\{self.listButtonsImages[i]}').convert_alpha();
             imageRect = buttonImage.get_rect();
             imageRect = imageRect.move(self.listButtonsCords[i]);
             if (key not in self.dictButtons):
