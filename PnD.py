@@ -16,22 +16,23 @@ running = True;
 # Inicialização e simples configuracao do pygame.mixer
 pygame.mixer.init();
 pygame.mixer.music.set_volume(0);
-# Necessary sound variables
+
+# Variável para som de clique no jogo
 selectSound = pygame.mixer.Sound('Sounds\\selectSound.mp3');
 
-# Testar se o mixer foi inicializado
+# Testar se o mixer foi inicializado com sucesso (erro existente em versões aneriores do pygame)
 if (pygame.mixer.get_init() != True):
     pygame.mixer.init();
 
 # Variável de fonte
 font = pygame.font.Font('Fonts\\AGoblinAppears-o2aV.ttf', 18)
 
-# Variáveis de grupos
+# Variáveis de grupos do jogador e inimigos
 Heroes = pygame.sprite.Group();
 Enemys = pygame.sprite.Group();
 
 # Variáveis dos status dos personagens
-# (HP: (8-25), MANA: (0-50), ATK: (8-25), FDEF: (5-20), MDEF: (5-20), 'AP/AD') # Valores para as configurações 
+# (HP: (8-25), MANA: (0-50), ATK: (8-25), FDEF: (5-20), MDEF: (5-20), 'AP/AD') # Valores para as configurações de personagens
 mageStats = (9, 10, 24, 6, 6, 'AP');
 PaladinStats = (25, 20,  11, 15, 12, 'AD');
 monkStats = (19, 20, 16, 9, 8, 'AD');
@@ -39,7 +40,8 @@ rangerStats = (14, 0, 13, 12, 8, 'AD');
 clericStats = (11, 30, 9, 11, 13, 'AP');
 skullStats = (30, 0, 2, 10, 20, 'AD');
 
-# Lista de variáveis de velocidade (no sistema de d&d, a velocidade não pode se repetir)
+# Lista de variáveis de velocidade (no sistema de d&d, a velocidade não pode se repetir).
+# Essa será uma versão simplificada do sistema de d&d
 allSpeed = []
 
 # Outras variáveis 
@@ -50,6 +52,7 @@ indexTurn = 0;
 selectedChar = '';
 oneTime = 0;
 
+# Variáveis de configuração para seta de seleção do jogo
 arrow = pygame.image.load('Images\\Assets\\arrow.png').convert_alpha();
 arrowCoordsButton = [(65, 600), (93, 679), (402, 600)];
 arrowCoordsChar = [(686, 220), (686, 420)];
@@ -76,15 +79,16 @@ class char(pygame.sprite.Sprite):
         self.stateRounds = 0;
         self.state = 'Normal';
         self.image = pygame.transform.scale(self.image, (70, 70));
-        self.rect = self.image.get_rect() ;
-        self.rect = self.rect.move(coords);
+        # self.rect = self.image.get_rect();
+        # self.rect = self.rect.move(coords);
         screen.blit(self.image, coords);
         self.explain();
 
-    # Função com utilidade apenas para visualização de estatísticas 
+    # Função com utilidade apenas para visualização de estatísticas de todos os personagens
     def explain(self):
         print(f'Nome: {self.id}, Speed: {self.speed}, HP: {self.hp}, defT: {self.fisicalDef + self.magicalDef}, atk: {self.atk}');
 
+    # Funções get apenas para retorno de valores simples
     def getSpeed(self):
         return self.speed;
 
@@ -108,24 +112,29 @@ class char(pygame.sprite.Sprite):
         if (Char.hp <= 0):
             death(Char);
         
-    # Função de aumentar a defesa do personagem ao escolher essa ação 
+    # Função de aumentar/dobrar a defesa do personagem ao escolher essa ação 
     def buffDefense(self):
         self.indexDefense = 1;
         self.fisicalDef = self.fisicalDef * 2;
         self.magicalDef = self.magicalDef * 2;
 
+    # Função de habilidades inatas dos personagens, recebendo qual o personagem atual e o que será atacado
+    # Varifica qual o personagem atual para saber qual é sua habilidade de classe para ativa-la
     def skill(self, selectedChar):
         global listTurn;
-        if (self.id == 'Mage'):
+        # Skill do mago que aumenta seu ataque em 25% e da dano a todos os inimigos
+        if (self.id == 'Mage':
             self.atk = self.atk*1.25;
             for i in range(len(Enemys.sprites())):
                 self.attack(Enemys.sprites()[i]);
             self.atk = self.atk/1.25;
             self.mana -+ self.manaCost;
+        # Skill do paladino que triplica sua defesa e aplica efeito 'Provocar' aos inimigos
         elif (self.id == 'Paladin'):
             self.indexDefense = 2;
             self.fisicalDef = self.fisicalDef * 3;
             self.magicalDef = self.magicalDef * 3;
+        # Skill do clérigo que cura todos os heróis aliados até seu maximo de HP possível 
         elif (self.id == 'Cleric'):
             for i in range(len(Heroes.sprites())):
                 if (Heroes.sprites()[i].hp < Heroes.sprites()[i].maxHp):
@@ -133,31 +142,40 @@ class char(pygame.sprite.Sprite):
                 if (Heroes.sprites()[i].hp > Heroes.sprites()[i].maxHp):
                     Heroes.sprites()[i].hp = Heroes.sprites()[i].maxHp;
             self.mana -+ ((self.manaCost/2)*len(Heroes.sprites()));
+        # Skill do ranger que realiza um ataque normal com efeito de 'Envenenamento' a um inimigo
         elif (self.id == 'Ranger'):
             selectedChar.state = 'Poisoned';
             print(f'{selectedChar.id} foi envenenado!')
             self.attack(selectedChar);
+        # Skill do monge que realiza um ataque simples com efeito de 'Atordoamento' a um inimigo
         elif (self.id == 'Monk'):
             selectedChar.state = 'Stunned';
             print(f'{selectedChar.id} foi stunnado!')
             self.attack(selectedChar);
             self.mana -+ self.manaCost;
-    
+
+    # Função que verifica o estado de um personagem toda vez que seu turno se inicia
     def statsVerify(self):
-        # Each turn will verify if the player/monster has def boost
+        # Verifica se um Buff de dano esta ativo no personagem. se sim, o cancelará 
         if (self.indexDefense == 1):
             self.indexDefense == 0;
             self.fisicalDef = self.fisicalDef / 2;
             self.magicalDef = self.magicalDef / 2;
+        # Se seu estado for 'Normal', Seu turno se iniciará
         if (self.state == 'Normal'):
             return True;
+        # Se seu estado for 'Envenenado' (Skill ranger), tomará 15% de seu HP atual como dano
+        # Caso o efeito de envenenamento esteja ativo a duas rodadas, o cancelará e iniciará sua vez
         elif (self.state == 'Poisoned'):
             if (self.stateRounds == 2):
                 self.stateRounds = 0;
                 self.state == 'Normal';
                 print(f'{self.id} voltou ao normal!');
+                return True;
             else:
                 self.hp -= (self.hp * 0.15);
+        # Caso seu estado seja 'Atordoado', o inimigo não jogará nessa rodada.
+        # Se o estado de 'Atordodado' estiver ativo a uma rodada, ele será cancelado
         elif (self.state == 'Stunned'):
             if (self.stateRounds == 1):
                 self.stateRounds = 0;
@@ -167,7 +185,7 @@ class char(pygame.sprite.Sprite):
             self.stateRounds += 1;
             return False;
 
-        # Função que cria os heróis com base nos personagens escolhidos
+    # Função que cria os heróis com base nos personagens escolhidos
     def createHeroes():
         coords = [(250, 220), (200, 320), (250, 420)];
         print();
@@ -176,7 +194,7 @@ class char(pygame.sprite.Sprite):
             image = pygame.transform.scale(image, (150, 150));
             name = str(Pve.listHeroes[i])
             speed = random.randrange(1, 20);
-            # Verifica se a velocidade ja existe pois nao pode ser repetida
+            # Verifica se a velocidade já existe pois não pode ser repetida
             while speed in allSpeed:
                 speed = random.randrange(1, 20);
             allSpeed.append(speed)
@@ -252,12 +270,13 @@ class pve():
 
         screen.blit(self.bgimage, (0, 0));
         # Se o número de personagens escolhidos for menor que 3, continua com os botões na tela
+        # Caso contrario, inicia o modo combate
         if (len(self.listHeroes) < 3):
             self.teamScreen();
         else:
             screenType = 'Combat';
             
-
+    # Desenha na tela as fotos dos heróis, que serão botões clicáveis para adicioná-los ao seu time
     def drawButtons(self):
         # Coloca os botões na tela e os adiciona a um dicionário com o valor do rect
         for i in range(len(self.listHeroesTypes)):
@@ -277,7 +296,7 @@ class combat():
         # Atualiza e redesenha os heróis e inimigos na tela
         self.bgimage = pygame.image.load('Images\\Backgrounds\\BackgroundPve1.png').convert();
         screen.blit(self.bgimage, (0, 0));
-
+        # Atualiza os personagens e os desenha na tela
         Heroes.update() ; Enemys.update();
         Heroes.draw(screen) ; Enemys.draw(screen);
         # Carrega a barra de menu e vida
@@ -285,7 +304,7 @@ class combat():
         # Escreve todo o texto nas barras de menu e vida
         self.drawText(indexTurn);
 
-    # Desenha as barraa de menu e vida
+    # Desenha as barras de menu de ação e de informações vida
     def menuBar(self):
         coords = [(10, 508), (739, 508)];
         bar = ['menuBar', 'infoBar']
@@ -322,7 +341,6 @@ def sortDictTurn():
     for i in turnDict.keys():
         listTurn.append(i);
 
-
 # Chama a tela que sera carregada de acordo com o tipo de botão clicado
 def updateScreenType(typeButton):
     global running;
@@ -341,7 +359,7 @@ def updateScreenType(typeButton):
     # Ainda sem configuração
     elif (typeButton == 'MenuButtons.png'):
         return
-    # Ainda sem configuração 
+    # Interface de configuração do jogo (não funcional)
     elif (typeButton == 'optionsButton.png'):
         return
     # Botão que fecha o jogo com efeito fade
@@ -350,13 +368,14 @@ def updateScreenType(typeButton):
         menus.fade.musicFade('out');
         menus.fade.backgroundFade(True, 'in', 3);
     # Botão de "voltar" muito comum em jogos
+    # (Não sei qual o motivo de alguem usar no estado atual mas tá ai existindo)
     elif (typeButton == 'setaE.png'):
         screenType = lastScreenType
         if lastScreenType == 'Menu':
             menus.fade.backgroundFade(True, 'in', 25);
             menus.fade.backgroundFade(Menu.bgimage, 'out', 25);
             Menu.menuScreen;
-    # Botão de Pvp ainda nao funcional
+    # Botão de Pvp (não funcional)
     elif (typeButton == 'pvpButton.png'):
         return
     # Chama o modo Pve do jogo
@@ -364,25 +383,32 @@ def updateScreenType(typeButton):
         screenType = 'PVE'
         menus.fade.backgroundFade(True, 'in', 25);
         Pve.selectScreen();
+    # Botão para reiniciar o jogo, indo para interface de escolha de modo
     elif (typeButton == ('restartButton.png')):
         screenType = 'PlayMode';
         menus.fade.backgroundFade(True, 'in', 25);
         Play.playScreen();
 
+# Função que verifica a morte de um personagem e quantidade de personagens nos times
+# se essa quantidade for igual a 0, chamará a tela de 'GameOver' do jogo
 def death(Char):
     global arrowCoordsButton ; global indexButtonArrow ; 
     global arrowCoordsChar ; global indexCharArrow ;
     global screenType;
+    # Remove o personagem morto da lista de turnos
     listTurn.remove(Char);
-    arrowCoordsChar.remove(arrowCoordsChar[indexCharArrow]);
-    enemyButtons.remove(enemyButtons[indexCharArrow]);
+    # Remove o char do grupo de sprites e/ou da lista em que ele era uma opção para ataque
     if ((Char.id == 'Skull0') or (Char.id == 'Skull1')):
         Enemys.remove(Char);
+        arrowCoordsChar.remove(arrowCoordsChar[indexCharArrow]);
+        enemyButtons.remove(enemyButtons[indexCharArrow]);
     else:
         Heroes.remove(Char);
+    # Verifica se algum time perdeu
     if ((len(Heroes.sprites()) == 0) or (len(Enemys.sprites()) == 0)):
         screenType = 'GameOver'
 
+# Função para reinicialização de variaveis para início de uma nova partida PVE
 def resetVariables():
     global running;
     global arrowCoordsButton;
@@ -407,7 +433,7 @@ Pve = pve();
 Combat = combat();
 
 def main():
-    # Variáveis globais 
+    # Variáveis globais necessárias 
     global running;
     global screenType;
     global lastScreenType;
@@ -438,8 +464,8 @@ def main():
 
     while running:
         # Eventos
-        # Fecha o jogo ao clicar no botão "quit" ou usar ALT + F4
         for event in pygame.event.get():
+            # Fecha o jogo ao clicar no botão "quit" ou usar ALT + F4
             if event.type == pygame.QUIT:
                 running = False;
                 menus.fade.musicFade('out');
@@ -478,7 +504,7 @@ def main():
                                 selectSound.play();
                                 if (key != screenType):
                                     screenType == key;
-                                # Verifica se o personagem clicado ja está no time e se o tamanho do time é menor que 3, se sim, adiciona o personagem ao dicionario
+                                # Verifica se o personagem clicado ja está no time e se o tamanho do time é menor que 3, e se possível, adiciona o personagem ao dicionario
                                 if (key in Pve.dictButtons):
                                     if (Pve.listHeroesTypes[list(Pve.dictButtons).index(key)] not in Pve.listHeroes) and (len(Pve.listHeroes) < 3):
                                         resetVariables();
@@ -492,33 +518,39 @@ def main():
                                 if (key != screenType):
                                     screenType == key; 
                                 updateScreenType(key);          
-
+            # Funções para quando o teclado for clicado
             if event.type == pygame.KEYDOWN:
                 if ((charTurn.getId() != 'Skull1') or (charTurn.getId() != 'Skull0') and (screenType == 'Combat')):
+                    # Reseta a variável de turnos caso ela exceda o limite
                     if (indexTurn >= len(listTurn)):
                         indexTurn = 0;
                     if event.key == pygame.K_RIGHT:
+                        # Caso a ação seja uma string vazia
+                        # Passa para proxima opção de ataque, skill ou defesa
                         if (action == ''):
-                            # Passar para proxima opção de ataque, skill ou defesa
                             indexButtonArrow += 1;
+                            # Reseta a variável índice de ação para que não exceda o limite
                             if (indexButtonArrow >= 3):
                                 indexButtonArrow = 0;
+                        # Se nenhum personagem for selecionado até o momento
+                        # Passar para proxima opção de qual personagem atacar
                         elif (selectedChar == ''):
-                            # Passar para proxima opção qual personagem atacar
                             indexCharArrow += 1;
+                            # Reseta o índice de qual personagem será selecionado
                             if (indexCharArrow >= len(Enemys.sprites())):
                                 indexCharArrow = 0;
+                    # Ao usar a tecla 'Return/ENTER', a ação ou perosnagem escolhida será lida
                     elif event.key == pygame.K_RETURN:
                         if (action == ''):
                             action = Combat.actions[indexButtonArrow];
+                            # Se a ação for defender, nenhum personagem será lido
                             if (action == 'Defend'):
                                 selectedChar = ' ';
                         elif (selectedChar == ''):
                             selectedChar = enemyButtons[indexCharArrow];
+                    # Caso a tecla Z seja clicada, voltará à opção de escolher uma ação 
                     elif event.key == pygame.K_z:
                         action = '';
-                ### VERIFICACAO DE STATUS E ESTADOS PARA JOGADA ###
-                # charTurn.statsVerify();
               
         # Faz diferentes ações baseado no tipo de tela                                            
         if (screenType == 'Menu'):
@@ -568,12 +600,18 @@ def main():
                 indexCharArrow = 0;
             charTurn = listTurn[indexTurn];
             Combat.combatScreen(indexTurn);
+            ### VERIFICACAO DE STATUS E ESTADOS PARA JOGADA ###
+            # charTurn.statsVerify();
             if ((charTurn.getId() != 'Skull1') and (charTurn.getId() != 'Skull0')):
                 if ((action != '') and (selectedChar != '')):
                     if (action == 'Attack'):
                         charTurn.attack(selectedChar);
                     elif (action == 'Skill'):
-                        charTurn.skill(selectedChar);
+                        if charTurn.mana <= charTurn.manaCost:
+                            print('Mana insuficiente! Impossível usar habilidade');
+                            action = '';
+                        else:
+                            charTurn.skill(selectedChar);
                     else:
                         charTurn.buffDefense();
                     selectedChar = '';
